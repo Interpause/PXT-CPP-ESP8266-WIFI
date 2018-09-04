@@ -19,14 +19,16 @@ uint64_t COMMAND_TIMEOUT = 5000; /**< Default timeout for AT commands. */
 
 uint64_t HTTP_REQUEST_TIMEOUT = 30000; /**< Default timeout for HTTP request commands. */
 uint64_t HTTP_RESPONSE_TIMEOUT = 90000; /**< Default timeout for HTTP responses. */
-#define LOOP_PAUSE 20
-#define ESP8266_DELIMITER '\u000D\u000A'
 
+#define LOOP_PAUSE 20
 
 //Helpers
 bool strcmp(char* a, char* b); /**< Compares two char[]. */
-uint16_t strind(char* find, char** list, uint16_t len); /**< Gets index of char[] in char[][]. */
+int strind(char* find, char** list, uint64_t len); /**< Gets index of char[] in char[][]. */
+int arrind(int find, int* list, uint64_t len); /**< Gets index of int/char in array. */
 char* substr(char* str,uint64_t start,uint64_t len); /**< Heavy duty substring. Doesn't support negative index. */
+#define NUMBERS '0123456789'
+int parseInt(char* str); /** parseInt. Doesn't support negatives or deciimals. */
 
 //Handlers
 bool isInit = false; /**< Flag for everything to cancel and release. */

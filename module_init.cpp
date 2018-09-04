@@ -1,12 +1,17 @@
 #include "module_config.h"
 //Define helper functions
 bool strcmp(char* a, char* b){
-	for(uint64_t i = 0; a[i] != '\0'; i++) if(a[i] != b[i]) return false;
+	uint64_t i;
+	for(i = 0; a[i] != '\0'; i++) if(a[i] != b[i]) return false;
 	if(b[i] != '\0') return false;
 	return true;
 }
-uint16_t strind(char* find, char** list, uint16_t len){
-	for(uint16_t i = 0; i < len; i++) if(strcmp(list[i],find)) return i;
+int strind(char* find, char** list, uint64_t len){
+	for(uint64_t i = 0; i < len; i++) if(strcmp(list[i],find)) return i;
+	return -1;
+}
+int arrind(int find, int* list, uint64_t len){
+	for(uint64_t i = 0; i < len; i++) if(find == list[i]) return i;
 	return -1;
 }
 char* substr(char* str, uint64_t start, uint64_t len){
@@ -18,6 +23,17 @@ char* substr(char* str, uint64_t start, uint64_t len){
 	}
 	sub[len] = '\0';
 	return sub;
+}
+int parseInt(char* str){
+	int len;
+	for(len = 0; arrind(str[len],NUMBERS,10) > -1; len++);
+	int res = 0;
+	for(int i = 1; i <= len; i++){
+		int mul = 1;
+		for(int n = 0; n < len - i; n++) mul = mul*10;
+		res += arrind(str[len],NUMBERS,10) * mul;
+	}
+	return res;
 }
 
 //Define linkedList template

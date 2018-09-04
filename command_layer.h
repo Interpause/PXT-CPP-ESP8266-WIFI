@@ -35,8 +35,16 @@ MicroBitSerial serial(WIFI_TX,WIFI_RX); /**< Used to prevent interruption to oth
 linkedList<Command> cmd_queue(); /**< Queue for AT commands to be sent to ESP8266. */
 linkedList<Command> cmd_cache(); /**< Cache for commands that have been replied to. */
 
+//Final values
+#define ESP8266_DELIMITER "\u000D\u000A"
+#define WHITESPACES "\u0009\u000B\u0020\u200E\u200F\u2028\u2029"
+#define WHITESPACES_LEN 7
+#define NEXTLINES "\u000A\u000C\u000D\u0085"
+#define NEXTLINES_LEN 4
+#define CIPCLOSE_REP "CLOSED"
+
 /** Handles ESP8266 responses. */
-void handleResponse(char* msg);
+void handleResponse();
 /** Processes serial output of ESP8266. */
 void handleSerial();
 /** Handles command queue and cache. */

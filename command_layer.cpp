@@ -32,15 +32,42 @@ char* Command::getReply(){
 	return reply;
 }
 
-void handleResponse(char* msg){
-	
+linkedList<char> msg();
+void handleResponse(){
+	char rep[msg.length()+1];
+	uint64_t pos = 0;
+	while(msg.length() > 0){
+		rep[pos] = *msg.pop();
+		pos++;
+	}
+	rep[pos] = '\0';
+	if(strcmp(substr(rep,2,6),CIPCLOSE_REP)) //Wifi.msgClosed(parseInt(substr(rep,0,1)));
 }
+linkedList<char> spaces();
+bool isStart = false;
 void handleSerial(){
-	char* 
+	msg.empty();
+	spaces.empty();
+	isStart = false;
 	while(!isInit){
-		char in = serial.read(ASYNC);
+		char in = serial.read(ASYNC); //Must be redeclared to prevent pointer shenanigans
 		if(in != MICROBIT_NO_DATA){
-			
+			if(isStart){
+				if(arrind(in,NEXTLINES,NEXTLINES_LEN) > -1){
+					if(msg.length() != 0) handleResponse();
+					msg.empty();
+					spaces.empty();
+					isStart = false;
+				}else{
+					spaces.push(&in);
+					if(arrind(in,WHITESPACES,WHITESPACES_LEN) == -1) while(spaces.length() > 0) msg.push(spaces.pop());				
+				}				
+			}else{
+				if(arrind(in,WHITESPACES,WHITESPACES_LEN) == -1 && arrind(in,NEXTLINES,NEXTLINES_LEN) == -1){
+					isStart = true;
+					msg.push(&in);
+				}
+			}
 		}
 		fiber_sleep(LOOP_PAUSE);
 	}
@@ -53,7 +80,7 @@ void initCommandLayer(){
 	serial.baud(WIFI_BAUD);
 	cmd_queue.empty();
 	cmd_cache.empty();
-	
+	create_fiber(handleSerial);
 }
 
 /**
