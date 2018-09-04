@@ -1,0 +1,14 @@
+{
+    "name": "PXT-CPP-ESP8266-WIFI",
+    "dependencies": {
+        "core": "*",
+        "radio": "*"
+    },
+    "description": "",
+    "files": [
+        "main.blocks",
+        "main.ts",
+        "README.md",
+        "custom.ts"
+    ]
+}
