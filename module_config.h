@@ -1,4 +1,5 @@
 /** 
+ * Add typename to "unclear" class types if it starts giving problems.
  * Check out ESP8266's documentation here: 
  * https://www.espressif.com/en/support/download/documents?keys=&field_type_tid%5B%5D=14
  * If module doesn't work, try flashing ESP8266 with newer firmware: 
@@ -9,51 +10,55 @@
 #ifndef WIFI_MODULE_INCLUDED
 #define WIFI_MODULE_INCLUDED
 
-#include "pxt.h"
+#include "pxt.h" //Note: has <stdio>, <string>, <vector> and <stdint>
+#include <utility>
+#include <regex>
+#include <map>
+
+using namespace std;
 
 //Global Config
-PinName WIFI_TX = 0;
-PinName WIFI_RX = 1;
-uint32_t WIFI_BAUD = 9600;
-uint64_t COMMAND_TIMEOUT = 5000; /**< Default timeout for AT commands. */
+extern MicroBitPin* WIFI_TX;
+extern MicroBitPin* WIFI_RX;
+extern uint32_t WIFI_BAUD;
+extern uint64_t COMMAND_TIMEOUT; /**< Default timeout for AT commands. */
 
-uint64_t HTTP_REQUEST_TIMEOUT = 30000; /**< Default timeout for HTTP request commands. */
-uint64_t HTTP_RESPONSE_TIMEOUT = 90000; /**< Default timeout for HTTP responses. */
+extern uint64_t HTTP_REQUEST_TIMEOUT; /**< Default timeout for HTTP request commands. */
+extern uint64_t HTTP_RESPONSE_TIMEOUT; /**< Default timeout for HTTP responses. */
 
 #define LOOP_PAUSE 20
 
 //Helpers
-bool strcmp(char* a, char* b); /**< Compares two char[]. */
-int strind(char* find, char** list, uint64_t len); /**< Gets index of char[] in char[][]. */
-int arrind(int find, int* list, uint64_t len); /**< Gets index of int/char in array. */
-char* substr(char* str,uint64_t start,uint64_t len); /**< Heavy duty substring. Doesn't support negative index. */
-#define NUMBERS '0123456789'
-int parseInt(char* str); /** parseInt. Doesn't support negatives or deciimals. */
+template<typename T> 
+vector<T>::iterator find(vector<T>::iterator start,vector<T>::iterator end,T tgt);
+vector<string> regex_search_g(DataString* tgt,regex patt);
 
 //Handlers
-bool isInit = false; /**< Flag for everything to cancel and release. */
+extern bool isInit; /**< Flag for everything to cancel and release. */
 /** Initializes the serial and listeners used in the command layer. */
 void initCommandLayer();
+void initNetLayer();
 
-/** Partial one-way linkedList template for specialized use. Stuff like insert() not implemented as not needed. Heavy reliance on GC.*/
-template <class T>
-class linkedList{
-	private:
-		struct node{
-			T* val;
-			node* next;
-		}
-		node* head;
-		node* tail;
-		uint64_t length;
-	public:
-		linkedList(void);
-		~linkedList(void);
-		void push(T*);
-		T* pop(void);
-		T* splice(node*);
-		void empty(void);
-		node* first(void);
-		uint64_t length(void);
+//Functions
+namespace Wifi_{
+	initializeESP8266(int tx, int rx, BaudRate rate);
+}
+namespace Command_{
+	/** Sends a command and forgets about it. */
+	void sendCmd(string msg, vector<string>* whitelist = NULL, vector<string>* blacklist = NULL, uint64_t timeout = 0);
+	/** Sends a command and waits for its reply. */
+	string waitforCmd(string msg, vector<string>* whitelist = NULL, vector<string>* blacklist = NULL, uint64_t timeout = 0);
+	/** Sends a command and return a integer id that can be used to get the reply via retrieveCmdRep(id) or checkCmdRep(id) */
+	uint64_t sendKeptCmd(string msg, vector<string>* whitelist = NULL, vector<string>* blacklist = NULL, uint64_t timeout = 0);
+	string retrieveCmdRep(uint64_t id);
+	string checkCmdRep(uint64_t id);
+}
+
+namespace Net_{
+	bool usedSlots[];
+	bool connectSite(string url, uint8_t slot, string protocol = "TCP");
+	bool disconnectSite(uint8_t slot);
+	void setSlotState(uint8_t slot, bool isOpen);
+	void forwardResponse(string resp, uint8_t slot);
 }
 #endif

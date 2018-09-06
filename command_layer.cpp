@@ -1,12 +1,10 @@
 #include "command_layer.h"
-Command::Command(char* msg, char** wl, uint16_t wll, char** bl, uint16_t bll, uint64_t timeout, bool discard){
+Command::Command(string msg, vector<string>* wl, vector<string>* bl, uint64_t timeout, bool discard){
     cmd = msg;
-    reply = NULL;
-    reject = NULL;
+    reply = "";
+    reject = "";
     whitelist = wl;
     blacklist = bl;
-    whitelist_len = (wl==NULL)?0:wll;
-    blacklist_len = (bl==NULL)?0:bll;
 	time_sent = 0;
     lifespan = (timeout==0)?COMMAND_TIMEOUT:timeout;
 	id = uBit.systemTime();
@@ -16,84 +14,174 @@ void Command::update(){
 	if (time_sent != 0 && uBit.systemTime() - time_sent > lifespan) reply = "TIMED OUT";
 }
 void Command::send(){
-	for(uint64_t i = 0; cmd[i] != '\0'; i++) serial.sendChar(cmd[i]); //slower but prevents overflow.
+	for(string::iterator it = cmd.begin(); it != cmd.end(); it++) serial.sendChar(*it); //slower but prevents overflow.
 	serial.sendString(ESP8266_DELIMITER,2);
 	time_sent = uBit.systemTime();
 }
-void Command::setReply(char* response){
-	if(strcmp(response,cmd)) return;
-	if(whitelist_len != 0 && strind(response,whitelist,whitelist_len) == -1) reject = response;
-	else if(blacklist_len != 0){
-		if(strind(response,blacklist,blacklist_len) == -1) reply = response;
+void Command::setReply(string response){
+	if(response == cmd) return;
+	if(whitelist != NULL && find(whitelist=>begin(),whitelist=>end(),response)==whitelist=>end()) reject = response;
+	else if(blacklist != NULL){
+		if(find(blacklist=>begin(),blacklist=>end(),response)==blacklist=>end()) reply = response;
 	}else reply = response;
 }
-char* Command::getReply(){
-	if(reply != NULL) seen = true;
-	return reply;
+string Command::getReply(){
+	if(!reply.empty()) seen = true;
+	return string(reply);
 }
 
-linkedList<char> msg();
+//Objects
+MicroBitSerial serial(WIFI_TX,WIFI_RX); /**< Used to prevent interruption to other Serial applications. */
+vector<Command> cmd_queue(); /**< Queue for AT commands to be sent to ESP8266. */
+vector<Command> cmd_cache(); /**< Cache for commands that have been replied to. */
+string msg = ""; //Holds raw message during processing of serial input.
+string spaces = ""; //Used in trimming message of trailing whitespace.
+string httpResponse = ""; //Holds http response sent to response layer.
+bool isStart = false; //Used in trimming message of trailing whitespace.
+uint64_t responseCharsLeft = 0; //Used for forwarding characters to request layer.
+int8_t responseSlot = -1; //which slot is being responded to.
+
 void handleResponse(){
-	char rep[msg.length()+1];
-	uint64_t pos = 0;
-	while(msg.length() > 0){
-		rep[pos] = *msg.pop();
-		pos++;
+	smatch closeMatch();
+	if(regex_search(msg,closeMatch,ATCLOSE)){
+		Net_::setSlotState(stoi(closeMatch.str(1)),false);
+		return;
 	}
-	rep[pos] = '\0';
-	if(strcmp(substr(rep,2,6),CIPCLOSE_REP)) //Wifi.msgClosed(parseInt(substr(rep,0,1)));
+	smatch connectMatch();
+	if(regex_search(msg,connectMatch,ATCONNECT)){
+		Net_::setSlotState(stoi(connectMatch.str(1)),true);
+		return;
+	}
+	smatch httpMatch();
+	if(regex_search(msg,httpMatch,ATIPD)){
+		responseSlot = stoi(httpMatch.str(1));
+		responseCharsLeft = stoull(httpMatch.str(2));
+		httpResponse = httpMatch.str(3);
+		responseCharsLeft -= (httpResponse.length() + 2); //Accounts for cut-off CRLF
+		return;
+	}
+	cmd_queue.front().setReply(string(msg));
 }
-linkedList<char> spaces();
-bool isStart = false;
+
 void handleSerial(){
-	msg.empty();
-	spaces.empty();
+	msg.clear();
+	spaces.clear();
+	httpResponse.clear();
+	responseCharsLeft = 0;
+	responseSlot = -1;
 	isStart = false;
 	while(!isInit){
 		char in = serial.read(ASYNC); //Must be redeclared to prevent pointer shenanigans
 		if(in != MICROBIT_NO_DATA){
-			if(isStart){
-				if(arrind(in,NEXTLINES,NEXTLINES_LEN) > -1){
-					if(msg.length() != 0) handleResponse();
-					msg.empty();
-					spaces.empty();
+			if(responseSlot != -1){
+				httpResponse += in;
+				responseCharsLeft--;
+			}else if(isStart){
+				if(NEXTLINES.find(in) != string::npos){
+					if(!msg.empty()) handleResponse();
+					msg.clear();
+					spaces.clear();
 					isStart = false;
 				}else{
-					spaces.push(&in);
-					if(arrind(in,WHITESPACES,WHITESPACES_LEN) == -1) while(spaces.length() > 0) msg.push(spaces.pop());				
+					spaces += in;
+					if(WHITESPACES.find(in) != string::npos){
+						msg += spaces;
+						spaces.clear();
+					}
 				}				
-			}else{
-				if(arrind(in,WHITESPACES,WHITESPACES_LEN) == -1 && arrind(in,NEXTLINES,NEXTLINES_LEN) == -1){
-					isStart = true;
-					msg.push(&in);
-				}
+			}else if(WHITESPACES.find(in) == string::npos && NEXTLINES.find(in) == string::npos){
+				isStart = true;
+				msg += in;
+			}
+		}else if(responseSlot != -1 && responseCharsLeft <= 0){
+			Net_::forwardResponse(string(httpResponse),responseSlot);
+			httpResponse.clear();
+			responseCharsLeft = 0;
+			responseSlot = -1;
+		}
+		fiber_sleep(LOOP_PAUSE);
+	}
+}
+
+void handleCommandQueue(){
+	cmd_queue.clear();
+	while(!isInit){
+		if(!cmd_queue.empty()){
+			cmd_queue.front().update();
+			if(cmd_queue.front().time_sent == 0) cmd_queue.front().send();
+			if(!cmd_queue.front().reply.empty()){
+				cmd_cache.push_back(move(cmd_queue.front()));
+				cmd_queue.erase(cmd_queue.begin());
 			}
 		}
 		fiber_sleep(LOOP_PAUSE);
 	}
 }
-void handleCommands(){
-	
+
+void handleCommandCache(){ //async right? if not this is problematic. Vector isnt threadsafe.
+	cmd_cache.clear();
+	while(!isInit){
+		for(vector<Command>::iterator it = cmd_cache.begin(); it != cmd_cache.end() && !isInit; it++) if(it=>seen) cmd_cache.erase(it);
+		if(cmd_cache.size() > CMDCACHEMAX) cmd_cache.erase(cmd_cache.begin(),cmd_cache.begin()+(cmd_cache - CMDCACHEMAX));
+		fiber_sleep(LOOP_PAUSE);
+	}
 }
+
 void initCommandLayer(){
 	serial.redirect(WIFI_TX,WIFI_RX);
 	serial.baud(WIFI_BAUD);
-	cmd_queue.empty();
-	cmd_cache.empty();
+	create_fiber(handleCommandQueue);
+	create_fiber(handleCommandCache);
 	create_fiber(handleSerial);
 }
 
-/**
- * Register an event to be fired when one of the delimiter is matched.
- * @param delimiters the characters to match received characters against.
- */
-//% help=serial/on-data-received
-//% weight=18 blockId=serial_on_data_received block="serial|on data received %delimiters=serial_delimiter_conv"
-void onDataReceived(StringData* delimiters, Action body) {
-    
-    uBit.messageBus.listen(MICROBIT_ID_SERIAL, MICROBIT_SERIAL_EVT_DELIM_MATCH, onButtonA);
-    // lazy initialization of serial buffers
-    uBit.serial.read(MicroBitSerialMode::ASYNC);
+/** Sends a command and forgets about it. */
+void Command_::sendCmd(string msg, vector<string>* whitelist = NULL, vector<string>* blacklist = NULL, uint64_t timeout = 0){
+	cmd_queue.emplace_back(msg,whitelist,blacklist,timeout,true);
+}
+/** Sends a command and waits for its reply. */
+string Command_::waitforCmd(string msg, vector<string>* whitelist = NULL, vector<string>* blacklist = NULL, uint64_t timeout = 0){
+	return retrieveCmdRep(sendKeptCmd(msg,whitelist,blacklist,timeout));
+}
+/** Sends a command and return a integer id that can be used to get the reply via retrieveCmdRep(id) or checkCmdRep(id) */
+uint64_t Command_::sendKeptCmd(string msg, vector<string>* whitelist = NULL, vector<string>* blacklist = NULL, uint64_t timeout = 0){
+	cmd_queue.emplace_back(msg,whitelist,blacklist,timeout,false);
+	return cmd_queue.back().id;
+}
+string Command_::retrieveCmdRep(uint64_t id){
+	bool inQueue = false;
+	for(vector<string>::iterator it = cmd_queue.start(); it != cmd_queue.end() && !inQueue; it++) if(it=>id == id) inQueue = true;
+	if(inQueue) while(!isInit){
+		if(cmd_cache.back().id==id) return cmd_cache.back().getReply();
+		fiber_sleep(LOOP_PAUSE);
+	}else return checkCmdRep(id);
+}
+string Command_::checkCmdRep(uint64_t id){
+	for(vector<string>::iterator it = cmd_cache.start(); it != cmd_cache.end(); it++) if(it=>id == id) return it=>getReply();
+	return string("");
 }
 
-return uBit.serial.readUntil(ManagedString(delimiter)).leakData();
+//%
+void Command_::sendCommand(StringData *msg, StringData *whitelist, StringData* blacklist, int timeout){
+	vector<string> nwl = regex_search_g(whitelist,DESTRINGIFY);
+	vector<string> nbl = regex_search_g(blacklist,DESTRINGIFY);
+	sendCmd(string(ManagedString(msg).toCharArray()),(nwl.empty())?NULL:&vector<string>(nwl),(nbl.empty())?NULL:&vector<string>(nbl),timeout);
+}
+//%
+StringData* Command_::waitforCommand(StringData *msg, StringData *whitelist, StringData* blacklist, int timeout)}{
+	return retrieveCommandReply(sendKeptCommand(msg,whitelist,blacklist,timeout));
+}
+//%
+int Command_::sendKeptCommand(StringData *msg, StringData *whitelist, StringData* blacklist, int timeout){
+	vector<string> nwl = regex_search_g(whitelist,DESTRINGIFY);
+	vector<string> nbl = regex_search_g(blacklist,DESTRINGIFY);
+	return sendKeptCmd(string(ManagedString(msg).toCharArray()),(nwl.empty())?NULL:&vector<string>(nwl),(nbl.empty())?NULL:&vector<string>(nbl),timeout);
+}
+//%
+StringData* Command_::retrieveCommandReply(int id){
+	return ManagedString(retrieveCmdRep(id).c_str()).leakData();
+}
+//%
+StringData* Command_::checkCommandReply(int id){
+	return ManagedString(checkCmdRep(id).c_str()).leakData();
+}

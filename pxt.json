@@ -11,8 +11,8 @@
         "custom.ts",
         "command_layer.h",
         "command_layer.cpp",
-        "request_layer.h",
-        "request_layer.cpp",
+        "net_layer.h",
+        "net_layer.cpp",
         "module_config.h",
         "module_init.cpp"
     ]

@@ -6,47 +6,56 @@
 /** Wrapper for AT commands sent to ESP8266. Used in command_layer.cpp. */
 class Command{
     public:
-        char* cmd, reply, reject;
-        char** whitelist,blacklist;
-        uint16_t whitelist_len,blacklist_len;
+        string cmd, reply, reject;
+        vector<string>* whitelist,blacklist;
         uint64_t time_sent,lifespan,id;
         bool seen;
 		/**
 		 * Creates an AT command wrapper for the ESP8266.
 		 * @param msg The command/message to send to the ESP8266.
-		 * @param wl List of acceptable replies. Set as NULL to accept all replies.
-		 * @param wll Length of wl.
-		 * @param bl List of ignored replies. Set as NULL to not ignore replies.
-		 * @param bll Length of bl.
+		 * @param wl Pointer to list of acceptable replies. Set as NULL to accept all replies. Pointer used for memory efficiency in case of defaults.
+		 * @param bl Pointer to list of ignored replies. Set as NULL to not ignore replies. Pointer used for memory efficiency in case of defaults.
 		 * @param timeout Time before command is regarded as unsuccessful.
 		 * @param discard If true, replies aren't cached for viewing.
 		 */
-        Command(char* msg, char** wl, uint16_t wll, char** bl, uint16_t bll, uint64_t timeout, bool discard);
+        Command(string msg, vector<string>* wl, vector<string>* bl, uint64_t timeout, bool discard);
         void update(void);
         void send(void);
-        void setReply(char* response);
-        char* getReply(void); 
+        void setReply(string response);
+        string getReply(void); 
 };
-template class linkedList<Command>;
-template class linkedList<char>;
-
-//Objects
-MicroBitSerial serial(WIFI_TX,WIFI_RX); /**< Used to prevent interruption to other Serial applications. */
-linkedList<Command> cmd_queue(); /**< Queue for AT commands to be sent to ESP8266. */
-linkedList<Command> cmd_cache(); /**< Cache for commands that have been replied to. */
 
 //Final values
 #define ESP8266_DELIMITER "\u000D\u000A"
-#define WHITESPACES "\u0009\u000B\u0020\u200E\u200F\u2028\u2029"
-#define WHITESPACES_LEN 7
-#define NEXTLINES "\u000A\u000C\u000D\u0085"
-#define NEXTLINES_LEN 4
-#define CIPCLOSE_REP "CLOSED"
+#define CMDCACHEMAX 16
+const string WHITESPACES "\u0009\u000B\u0020\u200E\u200F\u2028\u2029";
+const string NEXTLINES = "\u000A\u000C\u000D\u0085";
+const string CIPCLOSE_REP = ",CLOSED";
+const string IPD_REP = "+IPD";
+const regex ATCLOSE("(\d),CLOSED"); //connectionSlot
+const regex ATCONNECT("(\d),CONNECT"); //connectionSlot
+const regex ATIPD("\+IPD,(\d),(\d+):(.+)"); //connectionSlot,responseLen,Header
+const regex DESTRINGIFY("\"(.+?)\""); //[],["hi"],["hi","bye"],etc
 
 /** Handles ESP8266 responses. */
 void handleResponse();
 /** Processes serial output of ESP8266. */
 void handleSerial();
-/** Handles command queue and cache. */
-void handleCommands();
+/** Handles command queue. */
+void handleCommandQueue();
+/** Handles command cache. */
+void handleCommandCache();
+
+namespace Command_{
+	//%
+	void sendCommand(StringData *msg, StringData *whitelist, StringData* blacklist, int timeout);
+	//%
+	StringData* waitforCommand(StringData *msg, StringData *whitelist, StringData* blacklist, int timeout);
+	//%
+	int sendKeptCommand(StringData *msg, StringData *whitelist, StringData* blacklist, int timeout);
+	//%
+	StringData* retrieveCommandReply(int id);
+	//%
+	StringData* checkCommandReply(int id);
+}
 #endif

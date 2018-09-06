@@ -1,95 +1,39 @@
 #include "module_config.h"
-//Define helper functions
-bool strcmp(char* a, char* b){
-	uint64_t i;
-	for(i = 0; a[i] != '\0'; i++) if(a[i] != b[i]) return false;
-	if(b[i] != '\0') return false;
-	return true;
-}
-int strind(char* find, char** list, uint64_t len){
-	for(uint64_t i = 0; i < len; i++) if(strcmp(list[i],find)) return i;
-	return -1;
-}
-int arrind(int find, int* list, uint64_t len){
-	for(uint64_t i = 0; i < len; i++) if(find == list[i]) return i;
-	return -1;
-}
-char* substr(char* str, uint64_t start, uint64_t len){
-	char sub[len+1];
-	uint64_t cur = 0;
-	for(uint64_t i = 0; str[i] != '\0' && cur < len; i++) if(i >= start){
-		sub[cur] = str[i];
-		cur++;
-	}
-	sub[len] = '\0';
-	return sub;
-}
-int parseInt(char* str){
-	int len;
-	for(len = 0; arrind(str[len],NUMBERS,10) > -1; len++);
-	int res = 0;
-	for(int i = 1; i <= len; i++){
-		int mul = 1;
-		for(int n = 0; n < len - i; n++) mul = mul*10;
-		res += arrind(str[len],NUMBERS,10) * mul;
-	}
-	return res;
+#include <map>
+
+//Extern initializers
+MicroBitPin* WIFI_TX = &uBit.io.P0;
+MicroBitPin* WIFI_RX = &uBit.io.P1;
+uint32_t WIFI_BAUD = 9600;
+uint64_t COMMAND_TIMEOUT = 4000;
+uint64_t HTTP_REQUEST_TIMEOUT = 60000;
+uint64_t HTTP_RESPONSE_TIMEOUT = 90000;
+bool isInit = false;
+
+//Initialize helpers
+template<typename T> 
+vector<T>::iterator find(vector<T>::iterator start,vector<T>::iterator end,T tgt){
+	for(vector<T>::iterator it = start; it != end; it++) if(*it == tgt) return it;
+	return end;
 }
 
-//Define linkedList template
-template <class T>
-linkedList<T>::linkedList(){
-	head = NULL;
-	tail = NULL;
-	length = 0;
-}
-template <class T>
-linkedList<T>::~linkedList(){
-	empty();
-}
-template <class T>
-void linkedList<T>::push(T* in){
-	node* entry = new node;
-	entry->val = in;
-	entry->next = NULL;
-	if(length == 0) head = entry;
-	else tail->next = entry;
-	tail = entry;
-	length++;
-}
-template <class T>
-T* linkedList<T>::pop(){
-	if(length == 0) return NULL;
-	node* old = head;
-	head = old->next;
-	length--;
-	return old->val;
-}
-template <class T>
-T* linkedList<T>::splice(node* bef){
-	if(length <= 1) return NULL;
-	node* old = bef->next;
-	if(old->next == NULL) tail = bef;
-	else bef->next = old->next;
-	length--;
-	return old->val;
-}
-template <class T>
-void linkedList<T>::empty(){
-	while(length > 0) pop();
-}
-template <class T>
-node* linkedList<T>::first(){
-	return head;
-}
-template <class T>
-uint64_t linkedList<T>::length(){
-	return length;
+vector<string> regex_search_g(DataString* tgt,regex patt){
+	smatch store();
+	vector<string> res();
+	string raw(ManagedString(tgt).toCharArray());
+	while(regex_search(raw,store,patt)){
+		for(smatch::iterator it = store.begin()+1; it != store.end(); it++) res.push_back(move(*it));
+		raw = store.suffix().str();
+	}
+	return vector<string>(res);
 }
 
-void initializeESP8266(SerialPin rx, SerialPin tx, BaudRate rate){
+void Wifi_::initializeESP8266(int tx, int rx, BaudRate rate){
     isInit = true;
-	//pause a while
+	fiber_sleep(LOOP_PAUSE*10);
 	isInit = false;
 	//The rest of init proccedures.
+	WIFI_TX = getPin(tx);
+	WIFI_RX = getPin(rx);
+	initCommandLayer();
 }
