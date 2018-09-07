@@ -11,7 +11,7 @@ Command::Command(string msg, vector<string>* wl, vector<string>* bl, uint64_t ti
 	seen = discard;
 }
 void Command::update(){
-	if (time_sent != 0 && uBit.systemTime() - time_sent > lifespan) reply = "TIMED OUT";
+	if (time_sent != 0 && uBit.systemTime() - time_sent > lifespan) reply = CMD_TIMED_OUT;
 }
 void Command::send(){
 	for(string::iterator it = cmd.begin(); it != cmd.end(); it++) serial.sendChar(*it); //slower but prevents overflow.
@@ -42,17 +42,17 @@ uint64_t responseCharsLeft = 0; //Used for forwarding characters to request laye
 int8_t responseSlot = -1; //which slot is being responded to.
 
 void handleResponse(){
-	smatch closeMatch();
+	smatch closeMatch;
 	if(regex_search(msg,closeMatch,ATCLOSE)){
 		Net_::setSlotState(stoi(closeMatch.str(1)),false);
 		return;
 	}
-	smatch connectMatch();
+	smatch connectMatch;
 	if(regex_search(msg,connectMatch,ATCONNECT)){
 		Net_::setSlotState(stoi(connectMatch.str(1)),true);
 		return;
 	}
-	smatch httpMatch();
+	smatch httpMatch;
 	if(regex_search(msg,httpMatch,ATIPD)){
 		responseSlot = stoi(httpMatch.str(1));
 		responseCharsLeft = stoull(httpMatch.str(2));
@@ -150,14 +150,14 @@ uint64_t Command_::sendKeptCmd(string msg, vector<string>* whitelist = NULL, vec
 }
 string Command_::retrieveCmdRep(uint64_t id){
 	bool inQueue = false;
-	for(vector<string>::iterator it = cmd_queue.start(); it != cmd_queue.end() && !inQueue; it++) if(it=>id == id) inQueue = true;
+	for(vector<Command>::iterator it = cmd_queue.start(); it != cmd_queue.end() && !inQueue; it++) if(it=>id == id) inQueue = true;
 	if(inQueue) while(!isInit){
 		if(cmd_cache.back().id==id) return cmd_cache.back().getReply();
 		fiber_sleep(LOOP_PAUSE);
 	}else return checkCmdRep(id);
 }
 string Command_::checkCmdRep(uint64_t id){
-	for(vector<string>::iterator it = cmd_cache.start(); it != cmd_cache.end(); it++) if(it=>id == id) return it=>getReply();
+	for(vector<Command>::iterator it = cmd_cache.start(); it != cmd_cache.end(); it++) if(it=>id == id) return it=>getReply();
 	return string("");
 }
 

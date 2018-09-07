@@ -3,32 +3,36 @@
 #define WIFI_NET_INCLUDED
 class Request{
 	public:
-		string method, URI, host, body, req, response;
+		string method, URI, host, body, req, resp;
 		map<string,string> headers;
-		uint64_t time_sent,lifespan;
+		uint64_t time_started,time_sent,lifespan,resp_time;
 		uint16_t port;
 		uint8_t slot,id;
 		bool sent,seen;
 		
-		Request(string m, string uri, string msg, uint64_t timeout, bool discard);
+		Request::Request(string m, string URL, string msg, uint64_t timeout, uint64_t resp_timeout, bool discard);
 		void send(int connectionSlot);
 		void update(void);
 		void setResponse(string msg);
 		string getResponse(void);
-}
+		void setHeaders(map<string,string> head);
+};
 void handleRequestQueue();
 void handleRequestCache();
 
 //Final values
-const regex URLREGEX("^(?:https?\:\/\/)?([A-Za-z0-9\-\.]+)(?:\:([0-9]+))?(.*)$");
+#define ENDLINE "\u000D\u000A"
+#define CONNECTIONSLOTS 4
+#define RESPCACHEMAX 8
+const regex URLREGEX("^(?:https?\\:\\/\\/)?([A-Za-z0-9\\-\\.]+)(?:\\:([0-9]+))?(.*)$");//host,port,uri
 
 namespace Net_{
 	//%
-	void sendRequest(StringData* method, StringData* uri, StringData* data = "", int timeout = 0);
+	void sendRequest(StringData* method, StringData* uri, StringData* data = "");
 	//%
-	StringData* waitforRequest(StringData* method, StringData* uri, StringData* data = "", int timeout = 0);
+	StringData* waitforRequest(StringData* method, StringData* uri, StringData* data = "");
 	//%
-	int sendKeptRequest(StringData* method, StringData* uri, StringData* data = "", int timeout = 0);
+	int sendKeptRequest(StringData* method, StringData* uri, StringData* data = "");
 	//%
 	StringData* retrieveResponse(int id);
 	//%

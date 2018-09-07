@@ -32,10 +32,10 @@ const string WHITESPACES "\u0009\u000B\u0020\u200E\u200F\u2028\u2029";
 const string NEXTLINES = "\u000A\u000C\u000D\u0085";
 const string CIPCLOSE_REP = ",CLOSED";
 const string IPD_REP = "+IPD";
-const regex ATCLOSE("(\d),CLOSED"); //connectionSlot
-const regex ATCONNECT("(\d),CONNECT"); //connectionSlot
-const regex ATIPD("\+IPD,(\d),(\d+):(.+)"); //connectionSlot,responseLen,Header
-const regex DESTRINGIFY("\"(.+?)\""); //[],["hi"],["hi","bye"],etc
+const regex ATCLOSE("(\\d),CLOSED"); //connectionSlot
+const regex ATCONNECT("(\\d),CONNECT"); //connectionSlot
+const regex ATIPD("\\+IPD,(\\d),(\\d+):(.+)"); //connectionSlot,responseLen,Header
+const regex DESTRINGIFY("\\"(.+?)\\""); //[],["hi"],["hi","bye"],etc
 
 /** Handles ESP8266 responses. */
 void handleResponse();
