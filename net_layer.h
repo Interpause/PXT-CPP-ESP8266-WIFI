@@ -10,7 +10,7 @@ class Request{
 		uint8_t slot,id;
 		bool sent,seen;
 		
-		Request::Request(string m, string URL, string msg, uint64_t timeout, uint64_t resp_timeout, bool discard);
+		Request(string m, string URL, string msg, uint64_t timeout, uint64_t resp_timeout, bool discard);
 		void send(int connectionSlot);
 		void update(void);
 		void setResponse(string msg);
@@ -22,17 +22,16 @@ void handleRequestCache();
 
 //Final values
 #define ENDLINE "\u000D\u000A"
-#define CONNECTIONSLOTS 4
 #define RESPCACHEMAX 8
 const regex URLREGEX("^(?:https?\\:\\/\\/)?([A-Za-z0-9\\-\\.]+)(?:\\:([0-9]+))?(.*)$");//host,port,uri
 
 namespace Net_{
 	//%
-	void sendRequest(StringData* method, StringData* uri, StringData* data = "");
+	void sendRequest(StringData* method, StringData* uri, StringData* data);
 	//%
-	StringData* waitforRequest(StringData* method, StringData* uri, StringData* data = "");
+	StringData* waitforRequest(StringData* method, StringData* uri, StringData* data);
 	//%
-	int sendKeptRequest(StringData* method, StringData* uri, StringData* data = "");
+	int sendKeptRequest(StringData* method, StringData* uri, StringData* data);
 	//%
 	StringData* retrieveResponse(int id);
 	//%

@@ -7,7 +7,8 @@
 class Command{
     public:
         string cmd, reply, reject;
-        vector<string>* whitelist,blacklist;
+        vector<string> whitelist;
+		vector<string> blacklist;
         uint64_t time_sent,lifespan,id;
         bool seen;
 		/**
@@ -18,7 +19,7 @@ class Command{
 		 * @param timeout Time before command is regarded as unsuccessful.
 		 * @param discard If true, replies aren't cached for viewing.
 		 */
-        Command(string msg, vector<string>* wl, vector<string>* bl, uint64_t timeout, bool discard);
+        Command(string msg, vector<string> wl, vector<string> bl, uint64_t timeout, bool discard);
         void update(void);
         void send(void);
         void setReply(string response);
@@ -28,14 +29,14 @@ class Command{
 //Final values
 #define ESP8266_DELIMITER "\u000D\u000A"
 #define CMDCACHEMAX 16
-const string WHITESPACES "\u0009\u000B\u0020\u200E\u200F\u2028\u2029";
+const string WHITESPACES = "\u0009\u000B\u0020\u200E\u200F\u2028\u2029";
 const string NEXTLINES = "\u000A\u000C\u000D\u0085";
 const string CIPCLOSE_REP = ",CLOSED";
 const string IPD_REP = "+IPD";
 const regex ATCLOSE("(\\d),CLOSED"); //connectionSlot
 const regex ATCONNECT("(\\d),CONNECT"); //connectionSlot
 const regex ATIPD("\\+IPD,(\\d),(\\d+):(.+)"); //connectionSlot,responseLen,Header
-const regex DESTRINGIFY("\\"(.+?)\\""); //[],["hi"],["hi","bye"],etc
+const regex DESTRINGIFY("\"(.+?)\""); //[],["hi"],["hi","bye"],etc
 
 /** Handles ESP8266 responses. */
 void handleResponse();
